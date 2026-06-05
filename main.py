@@ -262,7 +262,7 @@ async def f_loc(m: types.Message, state: FSMContext):
         except: pass
     await state.clear()
 
-# --- ADMIN PANEL (MUHIM: BU QISM ISHLAYDI) ---
+# --- ADMIN PANEL ---
 @dp.message(F.text.in_([TEXTS['uz']['btn_admin'], TEXTS['ru'].get('btn_admin', 'Admin'), TEXTS['en'].get('btn_admin', 'Admin')]))
 async def admin_main(m: types.Message):
     if m.from_user.id not in ADMIN_IDS: return
