@@ -15,9 +15,9 @@ from aiogram.types import (
 )
 
 # --- KONFIGURATSIYA ---
-TOKEN = "8507163454:AAFXvQv8qfVdVKkmLZibABetauMh1L9AE7A"
-ADMIN_IDS = [6266750005]  
-WEB_APP_URL = "https://google.com/maps"
+TOKEN = "SIZNING_BOT_TOKENINGIZ" 
+ADMIN_IDS = [12345678]  # telegram id raqamingiz
+WEB_APP_URL = "https://google.com/maps"  # Xarita URL'si
 
 # O'zbekistonning barcha viloyat va tumanlari (To'liq ro'yxat)
 REGIONS = {
