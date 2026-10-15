@@ -143,5 +143,3 @@ Muxtasar:
 - **SolijonSolayev** — GitHub: https://github.com/SolijonSolayev
 
 ---
-
-Agar READMEda boshqa qo'shimchalar yoki batafsil screenshotlar kerak bo'lsa, ayting — men qo'shib qo'yaman.
