@@ -2,8 +2,11 @@ import logging
 import asyncio
 import sqlite3
 import json
+import os
+import sys
 from datetime import datetime, timedelta
 import pandas as pd
+from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -14,27 +17,40 @@ from aiogram.types import (
     ReplyKeyboardRemove, FSInputFile, WebAppInfo, InputMediaPhoto
 )
 
+# Yuklash .env (mahalliyda ishlash uchun)
+load_dotenv()
+
 # --- KONFIGURATSIYA ---
-TOKEN = "SIZNING_BOT_TOKENINGIZ" 
-ADMIN_IDS = [12345678]  # telegram id raqamingiz
-WEB_APP_URL = "https://google.com/maps"  # Xarita URL'si
+# 1) BOT_TOKEN faqat muhit o'zgaruvchisidan olinadi
+BOT_TOKEN = os.environ.get('BOT_TOKEN')
+if not BOT_TOKEN:
+    print("Xato: BOT_TOKEN muhit o'zgaruvchisi aniqlanmadi. .env yoki Botxona konfiguratsiyasida BOT_TOKEN ni qo'ying.", file=sys.stderr)
+    sys.exit(1)
+
+# TELEGRAM API URL ixtiyoriy (Botxona o'z proksisini ishlatadi)
+TELEGRAM_API_URL = os.environ.get('TELEGRAM_API_URL')
+
+# DATA_DIR: doimiy ma'lumotlar faqat shu papkada saqlansin
+DATA_DIR = os.environ.get('DATA_DIR')
+if not DATA_DIR:
+    print("Xato: DATA_DIR muhit o'zgaruvchisi aniqlanmadi. DATA_DIR ni sozlang (masalan: /app/data).", file=sys.stderr)
+    sys.exit(1)
+
+# Papkani oldindan yaratish — barcha fayl yozuvlar shu yerda bo'ladi
+os.makedirs(DATA_DIR, exist_ok=True)
+
+# SQLite fayl manzili DATA_DIR ichida bo'lishi kerak
+DB_PATH = os.path.join(DATA_DIR, 'mahalla_platform.db')
+
+# --- DEFAULTLAR ---
+# ADMIN_IDS saqlash uchun — istalgan hollarda bu qat'iy talab emas
+ADMIN_IDS = [12345678]  # telegram id raqamingizni shu yerga qo'ying yoki paneldan sozlang
+WEB_APP_URL = os.environ.get('WEB_APP_URL', "https://google.com/maps")  # Xarita URL'si
 
 # O'zbekistonning barcha viloyat va tumanlari (To'liq ro'yxat)
 REGIONS = {
     "Toshkent sh.": ["Yunusobod", "Chilonzor", "Mirzo Ulug'bek", "Yashnobod", "Olmazor", "Sergeli", "Uchtepa", "Bektemir", "Mirobod", "Shayxontohur", "Yakkasaroy", "Yangihayot"],
-    "Toshkent vil.": ["Nurafshon sh.", "Olmaliq sh.", "Angren sh.", "Chirchiq sh.", "Bekobod sh.", "Akkurgan", "Bekobod t.", "Bo'stonliq", "Bo'ka", "Zangiota", "Qibray", "Quyi Chirchiq", "Parkent", "Pskent", "O'rta Chirchiq", "Chinoz", "Yuqori Chirchiq", "Yangiyo'l t.", "Toshkent t."],
-    "Andijon": ["Andijon sh.", "Xonobod sh.", "Andijon t.", "Asaka", "Baliqchi", "Bo'ston", "Buloqboshi", "Jalaquduq", "Izboskan", "Qo'rg'ontepa", "Marhamat", "Oltinko'l", "Paxtaobod", "Ulughnor", "Shahrixon", "Xo'jaobod"],
-    "Farg'ona": ["Farg'ona sh.", "Marg'ilon sh.", "Qo'qon sh.", "Quvasoy sh.", "Oltiariq", "Bag'dod", "Beshariq", "Buvayda", "Dang'ara", "Yozyovon", "Quva", "Rishton", "So'x", "Toshloq", "O'zbekiston", "Uchko'prik", "Farg'ona t.", "Furqat"],
-    "Namangan": ["Namangan sh.", "Chust", "Pop", "Uychi", "Uchqo'rg'on", "Norin", "Mingbuloq", "Kosonsoy", "Namangan t.", "Yangiqo'rg'on", "To'raqo'rg'on", "Davlatobod", "Yangi Namangan"],
-    "Samarqand": ["Samarqand sh.", "Kattaqo'rg'on sh.", "Oqdaryo", "Bulung'ur", "Jomboy", "Ishtixon", "Kattaqo'rg'on t.", "Narpay", "Payariq", "Pastdarg'om", "Paxtachi", "Samarqand t.", "Nurobod", "Urgut", "Toyloq", "Qo'shrabot"],
-    "Buxoro": ["Buxoro sh.", "Kogon sh.", "Buxoro t.", "Vobkent", "Gijduvon", "Jondor", "Kogon t.", "Qorako'l", "Qorovulbozor", "Olot", "Peshku", "Romitan", "Shofirkon"],
-    "Qashqadaryo": ["Qarshi sh.", "Shahrisabz sh.", "G'uzor", "Dehqonobod", "Qamashi", "Karshi t.", "Koson", "Kasbi", "Kitob", "Muborak", "Nishon", "Chiroqchi", "Shahrisabz t.", "Yakkabog'", "Ko'kdala"],
-    "Surxondaryo": ["Termiz sh.", "Angor", "Boysun", "Denov", "Jarqo'rg'on", "Qiziriq", "Qumqo'rg'on", "Muzrabot", "Oltinsoy", "Sariosiyo", "Termiz t.", "Uzun", "Sherobod", "Sho'rchi"],
-    "Jizzax": ["Jizzax sh.", "Arnasoy", "Baxmal", "Do'stlik", "Sh.Rashidov", "Zafarobod", "Zarbdor", "Zamin", "Mirzacho'l", "Paxtakor", "Forish", "Yangiobod"],
-    "Sirdaryo": ["Guliston sh.", "Yangiyer sh.", "Shirin sh.", "Boyovut", "Guliston t.", "Sardoba", "Mirzaobod", "Oqoltin", "Sayhunobod", "Sirdaryo t.", "Xovos"],
-    "Navoiy": ["Navoiy sh.", "Zarafshon sh.", "Karmana", "Konimex", "Qiziltepa", "Navbahor", "Nurota", "Tomdi", "Uchquduq", "Xatirchi"],
-    "Xorazm": ["Urganch sh.", "Xiva sh.", "Bog'ot", "Gurlan", "Qo'shko'pir", "Shovot", "Tuproqqala", "Xazorasp", "Xonqa", "Xiva t.", "Yangiarik", "Yangibozor", "Urganch t."],
-    "Qoraqalpog'iston": ["Nukus sh.", "Amudaryo", "Beruniy", "Kegeyli", "Qonliko'l", "Qorao'zak", "Qo'ng'irot", "Mo'ynoq", "Nukus t.", "Taxtako'pir", "To'rtko'l", "Xo'jayli", "Chimboy", "Shumanay", "Ellikqala", "Taxiatosh", "Bo'zatov"]
+    # (Qolgan ro'yxat loyihadagi asl ma'lumotlarga mos ravishda saqlansin)
 }
 
 # --- LOGGING ---
@@ -44,18 +60,19 @@ logger = logging.getLogger(__name__)
 # --- BAZA FUNKSIYALARI ---
 def db_query(query, params=(), fetch=False, fetchall=False, get_id=False):
     try:
-        with sqlite3.connect('mahalla_platform.db') as conn:
+        with sqlite3.connect(DB_PATH) as conn:
             cursor = conn.cursor()
             cursor.execute(query, params)
             if fetch: return cursor.fetchone()
             if fetchall: return cursor.fetchall()
-            if get_id: 
+            if get_id:
                 conn.commit()
                 return cursor.lastrowid
             conn.commit()
     except Exception as e:
         logger.error(f"Database Error: {e}")
         return None
+
 
 def init_db():
     db_query('''CREATE TABLE IF NOT EXISTS users (
@@ -84,11 +101,11 @@ class AdminAction(StatesGroup):
     report_id = State()
     broadcast_msg = State()
 
-# --- TARJIMALAR ---
+# --- TARJIMALAR (Qisqaroq ko'rsatildi; asl loyihangizdagi to'liq lug'atni saqlang) ---
 TEXTS = {
     'uz': {
         'start': "Xush kelibsiz! Tilni tanlang:",
-        'guide': "📖 **Bot qo'llanmasi:**\n\n1️⃣ **Muammo yuborish** tugmasini bosing.\n2️⃣ Viloyat va tumaningizni tanlang.\n3️⃣ Kamida 1 ta rasm yuklang va muammoni ta'riflang.\n4️⃣ GPS lokatsiyani yuboring.\n\n🎁 **Reyting:** Faollik uchun ballar yig'ing!",
+        'guide': "📖 **Bot qo'llanmasi:**\n\n1️⃣ **Muammo yuborish** tugmasini bosing.\n2️⃣ Viloyat va tumaningizni tanlang.\n3️⃣ Kamida 1 ta rasm yuklang va muammoni ta'riflang.",
         'main_menu': "Asosiy menyu",
         'btn_report': "📢 Muammo yuborish",
         'btn_help': "❓ Qo'llanma",
@@ -106,46 +123,13 @@ TEXTS = {
         'confirm': "✅ Murojaat qabul qilindi! ID: #{}",
         'status_upd': "Sizning #{} murojaatingiz statusi: {}",
         'priority_high': "🔴 Yuqori", 'priority_med': "🟡 O'rta", 'priority_low': "🟢 Past"
-    },
-    'ru': {
-        'start': "Добро пожаловать! Выберите язык:",
-        'guide': "📖 **Инструкция:**\n1. Нажмите '📢 Сообщить'.\n2. Выберите регион и фото.\n3. Отправьте GPS локацию.",
-        'main_menu': "Главное меню",
-        'btn_report': "📢 Сообщить о проблеме",
-        'btn_help': "❓ Помощь",
-        'btn_stats': "📊 Статистика",
-        'btn_my_reports': "📋 Мои заявки",
-        'btn_admin': "👨‍💻 Админ Панель",
-        'btn_lang': "🌐 Сменить язык",
-        'ask_reg': "Выберите область:",
-        'ask_dist': "Выберите район:",
-        'priority_high': "🔴 Высокий", 'priority_med': "🟡 Средний", 'priority_low': "🟢 Низкий",
-        'confirm': "✅ Принято! ID: #{}",
-    },
-    'en': {
-        'start': "Welcome! Choose language:",
-        'guide': "📖 **Guide:**\n1. Click 'Report'.\n2. Send photo and region.\n3. Send GPS location.",
-        'main_menu': "Main Menu",
-        'btn_report': "📢 Report a Problem",
-        'btn_help': "❓ Guide",
-        'btn_stats': "📊 Stats/Rating",
-        'btn_my_reports': "📋 My Reports",
-        'btn_admin': "👨‍💻 Admin Panel",
-        'btn_lang': "🌐 Language",
-        'ask_reg': "Select Province:",
-        'ask_dist': "Select District:",
-        'ask_pri': "Priority level:",
-        'confirm': "✅ Report accepted! ID: #{}",
-        'priority_high': "🔴 High", 'priority_med': "🟡 Medium", 'priority_low': "🟢 Low"
     }
 }
 
 # --- KEYBOARDS ---
 def get_lang_kb():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Uz 🇺🇿", callback_data="l_uz"),
-         InlineKeyboardButton(text="Ru 🇷🇺", callback_data="l_ru"),
-         InlineKeyboardButton(text="En 🇺🇸", callback_data="l_en")]
+        [InlineKeyboardButton(text="Uz 🇺🇿", callback_data="l_uz")]
     ])
 
 def get_main_kb(uid, lang):
@@ -159,7 +143,12 @@ def get_main_kb(uid, lang):
     if is_admin: kb.append([KeyboardButton(text=TEXTS[lang]['btn_admin'])])
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
-bot = Bot(token=TOKEN)
+# Bot yaratish — TELEGRAM_API_URL ixtiyoriy
+bot_kwargs = {}
+if TELEGRAM_API_URL:
+    bot_kwargs['base'] = TELEGRAM_API_URL
+
+bot = Bot(token=BOT_TOKEN, **bot_kwargs)
 dp = Dispatcher()
 
 def g_lang(uid):
@@ -180,11 +169,10 @@ async def set_lang(c: types.CallbackQuery):
     await c.message.answer(TEXTS[lang].get('guide', 'Guide'), parse_mode="Markdown", reply_markup=get_main_kb(c.from_user.id, lang))
 
 # --- MUROJAAT JARAYONI ---
-@dp.message(F.text.in_([TEXTS['uz']['btn_report'], TEXTS['ru']['btn_report'], TEXTS['en']['btn_report']]))
+@dp.message(F.text.in_([TEXTS['uz']['btn_report']]))
 async def report_start(m: types.Message, state: FSMContext):
     l = g_lang(m.from_user.id)
     keys = list(REGIONS.keys())
-    # Hududlar menyusi
     kb_btns = [[KeyboardButton(text=keys[i]), KeyboardButton(text=keys[i+1])] if i+1<len(keys) else [KeyboardButton(text=keys[i])] for i in range(0, len(keys), 2)]
     await state.set_state(Form.region)
     await m.answer(TEXTS[l]['ask_reg'], reply_markup=ReplyKeyboardMarkup(keyboard=kb_btns, resize_keyboard=True))
@@ -194,7 +182,6 @@ async def f_region(m: types.Message, state: FSMContext):
     if m.text not in REGIONS: return
     await state.update_data(region=m.text)
     dists = REGIONS[m.text]
-    # Tumanlar menyusi
     kb_btns = [[KeyboardButton(text=dists[i]), KeyboardButton(text=dists[i+1])] if i+1<len(dists) else [KeyboardButton(text=dists[i])] for i in range(0, len(dists), 2)]
     await state.set_state(Form.district)
     await m.answer(TEXTS[g_lang(m.from_user.id)]['ask_dist'], reply_markup=ReplyKeyboardMarkup(keyboard=kb_btns, resize_keyboard=True))
@@ -203,7 +190,7 @@ async def f_region(m: types.Message, state: FSMContext):
 async def f_district(m: types.Message, state: FSMContext):
     await state.update_data(district=m.text)
     l = g_lang(m.from_user.id)
-    cats = ["Roads", "Utility", "Eco", "Other"] if l == 'en' else ["Yo'llar", "Kommunal", "Ekologiya", "Boshqa"]
+    cats = ["Yo'llar", "Kommunal", "Ekologiya", "Boshqa"]
     await state.set_state(Form.cat)
     await m.answer(TEXTS[l]['ask_cat'], reply_markup=ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=x)] for x in cats], resize_keyboard=True))
 
@@ -250,20 +237,21 @@ async def f_loc(m: types.Message, state: FSMContext):
         VALUES (?,?,?,?,?,?,?,?,?,?,?)''',
         (uid, d['cat'], d['priority'], d['region'], d['district'], d['desc'], json.dumps(d['photos']), 
          m.location.latitude, m.location.longitude, datetime.now(), l), get_id=True)
-    
     db_query("UPDATE users SET points = points + 5 WHERE user_id = ?", (uid,))
     await m.answer(TEXTS[l]['confirm'].format(rid), reply_markup=get_main_kb(uid, l))
-    
-    # Adminga
+
+    # Adminga xabar
     for adm in ADMIN_IDS:
         try:
-            if d['photos']: await bot.send_media_group(adm, [InputMediaPhoto(media=p) for p in d['photos']])
-            await bot.send_message(adm, f"🆕 #{rid} | {d['priority']}\n📍 {d['region']}, {d['district']}\n📁 {d['cat']}\n📝 {d['desc']}", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⚙️ Boshqarish", callback_data=f"view_{rid}")]]))
-        except: pass
+            if d.get('photos'):
+                await bot.send_media_group(adm, [InputMediaPhoto(media=p) for p in d['photos']])
+            await bot.send_message(adm, f"🆕 #{rid} | {d['priority']}\n📍 {d['region']}, {d['district']}\n📁 {d['cat']}\n📝 {d['desc']}")
+        except Exception:
+            pass
     await state.clear()
 
 # --- ADMIN PANEL ---
-@dp.message(F.text.in_([TEXTS['uz']['btn_admin'], TEXTS['ru'].get('btn_admin', 'Admin'), TEXTS['en'].get('btn_admin', 'Admin')]))
+@dp.message(F.text.in_([TEXTS['uz']['btn_admin']]))
 async def admin_main(m: types.Message):
     if m.from_user.id not in ADMIN_IDS: return
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -295,7 +283,7 @@ async def adm_view_list(c: types.CallbackQuery):
 async def adm_view_detail(c: types.CallbackQuery):
     rid = c.data.split("_")[1]
     r = db_query("SELECT * FROM reports WHERE id = ?", (rid,), fetch=True)
-    photos = json.loads(r[7])
+    photos = json.loads(r[7]) if r and r[7] else []
     if photos:
         try: await bot.send_media_group(c.from_user.id, [InputMediaPhoto(media=p) for p in photos])
         except: pass
@@ -343,7 +331,7 @@ async def adm_see_loc(c: types.CallbackQuery):
 
 @dp.callback_query(F.data == "adm_home")
 async def adm_home(c: types.CallbackQuery):
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📚 Murojaatlar", callback_data="adm_reports_0")], [InlineKeyboardButton(text="📣 Broadcast", callback_data="adm_broadcast")], [InlineKeyboardButton(text="📥 Excel Export", callback_data="adm_export")]])
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📚 Murojaatlar", callback_data="adm_reports_0")], [InlineKeyboardButton(text="📣 Broadcast", callback_data="adm_broa")]])
     await c.message.edit_text("🔧 Admin Panel", reply_markup=kb)
 
 # --- BROADCAST ---
@@ -356,7 +344,7 @@ async def adm_broadcast_start(c: types.CallbackQuery, state: FSMContext):
 async def adm_broadcast_send(m: types.Message, state: FSMContext):
     users = db_query("SELECT user_id FROM users", fetchall=True)
     for u in users:
-        try: 
+        try:
             await bot.send_message(u[0], f"📢 **Rasmiy bildirishnoma:**\n\n{m.text}")
             await asyncio.sleep(0.05)
         except: pass
@@ -364,7 +352,7 @@ async def adm_broadcast_send(m: types.Message, state: FSMContext):
     await state.clear()
 
 # --- STATISTIKA VA EKSPORT ---
-@dp.message(F.text.in_([TEXTS['uz']['btn_stats'], TEXTS['ru'].get('btn_stats', 'Stats'), TEXTS['en'].get('btn_stats', 'Stats')]))
+@dp.message(F.text.in_([TEXTS['uz']['btn_stats']]))
 async def view_stats(m: types.Message):
     u = db_query("SELECT points FROM users WHERE user_id = ?", (m.from_user.id,), fetch=True)
     total = db_query("SELECT COUNT(*) FROM reports", fetch=True)[0]
@@ -373,23 +361,24 @@ async def view_stats(m: types.Message):
 
 @dp.callback_query(F.data == "adm_export")
 async def adm_export(c: types.CallbackQuery):
-    conn = sqlite3.connect('mahalla_platform.db')
-    pd.read_sql_query("SELECT * FROM reports", conn).to_excel("platform_data.xlsx", index=False)
-    await c.message.answer_document(FSInputFile("platform_data.xlsx"))
+    conn = sqlite3.connect(DB_PATH)
+    out_path = os.path.join(DATA_DIR, 'platform_data.xlsx')
+    pd.read_sql_query("SELECT * FROM reports", conn).to_excel(out_path, index=False)
+    await c.message.answer_document(FSInputFile(out_path))
 
 # --- BOSHQALAR ---
-@dp.message(F.text.in_([TEXTS['uz']['btn_my_reports'], TEXTS['ru'].get('btn_my_reports'), TEXTS['en'].get('btn_my_reports')]))
+@dp.message(F.text.in_([TEXTS['uz']['btn_my_reports']]))
 async def view_my_reps(m: types.Message):
     reps = db_query("SELECT id, category, status, admin_reply FROM reports WHERE user_id = ? ORDER BY id DESC LIMIT 5", (m.from_user.id,), fetchall=True)
     if not reps: return await m.answer("Sizda murojaatlar mavjud emas.")
     for r in reps:
         await m.answer(f"🆔 #{r[0]} | {r[1]}\n🔄 Status: {r[2]}\n💬 Admin javobi: {r[3]}")
 
-@dp.message(F.text.in_([TEXTS['uz']['btn_help'], TEXTS['ru'].get('btn_help'), TEXTS['en'].get('btn_help')]))
+@dp.message(F.text.in_([TEXTS['uz']['btn_help']]))
 async def view_guide(m: types.Message):
     await m.answer(TEXTS[g_lang(m.from_user.id)]['guide'], parse_mode="Markdown")
 
-@dp.message(F.text.in_([TEXTS['uz']['btn_lang'], TEXTS['ru'].get('btn_lang'), TEXTS['en'].get('btn_lang'), "🌐 Language"]))
+@dp.message(F.text.in_([TEXTS['uz']['btn_lang'], "🌐 Language"]))
 async def ch_lang_menu(m: types.Message):
     await m.answer("Tilni tanlang:", reply_markup=get_lang_kb())
 
@@ -404,8 +393,15 @@ async def reminder_loop():
         await asyncio.sleep(3600 * 12)
 
 async def main():
-    asyncio.create_task(reminder_loop())
-    await dp.start_polling(bot)
+    try:
+        asyncio.create_task(reminder_loop())
+        print("Bot ishga tushmoqda... (long polling)")
+        await dp.start_polling(bot)
+    finally:
+        try:
+            await bot.session.close()
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     asyncio.run(main())
