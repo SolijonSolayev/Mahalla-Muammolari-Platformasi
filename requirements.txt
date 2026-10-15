@@ -1,0 +1,3 @@
+aiogram==3.0.0b7
+pandas==1.5.3
+python-dotenv==0.21.0
