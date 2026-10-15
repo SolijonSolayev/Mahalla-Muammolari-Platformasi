@@ -1,0 +1,90 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+dist/
+downloads/
+eggs/
+.eggs/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Virtualenvs
+venv/
+ENV/
+env/
+.venv/
+venv*/
+
+# dotenv environment files (do NOT commit secrets)
+.env
+.env.*
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Data directory (runtime writes should live here per Botxona standards)
+# Default DATA_DIR in .env.example is ./data — ignore runtime data so DB and exports not committed
+data/
+
+# Database and export files
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+platform_data.xlsx
+
+# Logs
+*.log
+
+# Python bytecode
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Node
+node_modules/
+
+# Backup files
+*~
+
+# Other
+*.pem
