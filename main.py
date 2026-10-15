@@ -5,7 +5,6 @@ import json
 import os
 import sys
 from datetime import datetime, timedelta
-import pandas as pd
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
@@ -16,6 +15,7 @@ from aiogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton, 
     ReplyKeyboardRemove, FSInputFile, WebAppInfo, InputMediaPhoto
 )
+from openpyxl import Workbook
 
 # Yuklash .env (mahalliyda ishlash uchun)
 load_dotenv()
@@ -109,7 +109,7 @@ class AdminAction(StatesGroup):
     report_id = State()
     broadcast_msg = State()
 
-# --- TARJIMALAR (Qisqaroq ko'rsatildi; asl loyihangizdagi to'liq lug'atni saqlang) ---
+# --- TARJIMALAR (Qisqaroq ko'rsatildi; asl loyihadagi to'liq lug'atni saqlang) ---
 TEXTS = {
     'uz': {
         'start': "Xush kelibsiz! Tilni tanlang:",
@@ -339,7 +339,7 @@ async def adm_see_loc(c: types.CallbackQuery):
 
 @dp.callback_query(F.data == "adm_home")
 async def adm_home(c: types.CallbackQuery):
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📚 Murojaatlar", callback_data="adm_reports_0")], [InlineKeyboardButton(text="📣 Broadcast", callback_data="adm_broa")]])
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📚 Murojaatlar", callback_data="adm_reports_0")], [InlineKeyboardButton(text="📣 Broadcast", callback_data="adm_broa[...]")])
     await c.message.edit_text("🔧 Admin Panel", reply_markup=kb)
 
 # --- BROADCAST ---
@@ -369,9 +369,25 @@ async def view_stats(m: types.Message):
 
 @dp.callback_query(F.data == "adm_export")
 async def adm_export(c: types.CallbackQuery):
+    # Pandas o'rniga openpyxl ishlatib Excel fayl yaratamiz,
+    # chunki ba'zi build muhiti pandas uchun wheel yaratishda muammoga olib kelishi mumkin.
     conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM reports")
+    rows = cur.fetchall()
+    cols = [description[0] for description in cur.description] if cur.description else []
     out_path = os.path.join(DATA_DIR, 'platform_data.xlsx')
-    pd.read_sql_query("SELECT * FROM reports", conn).to_excel(out_path, index=False)
+
+    wb = Workbook()
+    ws = wb.active
+    if cols:
+        ws.append(cols)
+    for row in rows:
+        # row elementlarini list ga aylantirib yozamiz
+        ws.append([r if r is not None else "" for r in row])
+    wb.save(out_path)
+    conn.close()
+
     await c.message.answer_document(FSInputFile(out_path))
 
 # --- BOSHQALAR ---
