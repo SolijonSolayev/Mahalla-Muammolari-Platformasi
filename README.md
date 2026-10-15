@@ -42,16 +42,16 @@ venv\Scripts\activate  # Windows
 
 ### 3. Kerakli kutubxonalarni o'rnating:
 ```bash
-pip install aiogram pandas openpyxl
+pip install -r requirements.txt
 ```
 
 ### 4. TOKEN va Admin IDs'ni sozlang:
-`main.py` faylidagi quyidagi qatorlarni o'zingizning Telegram Bot Token va Admin ID'lari bilan almashtirang:
+`main.py` yoki .env faylida quyidagi muhit o'zgaruvchilarini to'ldiring (Botxona standartlariga mos):
 
-```python
-TOKEN = "SIZNING_BOT_TOKENINGIZ"
-ADMIN_IDS = [ADMIN_USER_ID_1, ADMIN_USER_ID_2, ...]
-WEB_APP_URL = "https://google.com/maps"  # Xarita URL'si
+```text
+BOT_TOKEN=your_bot_token_here
+DATA_DIR=./data
+ADMIN_IDS=12345678  # agar bir nechta bo'lsa: 12345,67890
 ```
 
 ## 🏃 Ishga tushirish
@@ -62,9 +62,9 @@ Botni ishga tushirish uchun:
 python main.py
 ```
 
-Agar hammasi to'g'ri bo'lsa, terminaldagalliqq shunga o'xshash xabar ko'rishiz kerak:
+Agar hammasi to'g'ri bo'lsa, terminalda quyidagi xabar ko'rinishi mumkin:
 ```
-INFO:root:Bot ishga tushdi...
+Bot ishga tushmoqda... (long polling)
 ```
 
 ## 📋 Foydalanish Ko'rsatmasi
@@ -107,7 +107,7 @@ INFO:root:Bot ishga tushdi...
 
 4. **Statistika Eksporti:**
    - "📥 Excel Export" tugmasini bosing
-   - Barcha murojaatlar va ma'lumotlar Excel jadvaliga qo'plab chiqadi
+   - Barcha murojaatlar va ma'lumotlar Excel jadvaliga chiqadi
 
 ## 🗄️ Ma'lumotlar Bazasi Strukturasi
 
@@ -170,7 +170,7 @@ class AdminAction(StatesGroup):
 - **224-243:** Rasm(lar) yuklash
 - **244-264:** GPS lokatsiya va bazaga yozyuvchi
 
-#### **Admin Panel** (266-410 qatorlar):
+#### **Admin PANEL** (266-410 qatorlar):
 - **267-274:** Admin asosiy menyusi
 - **276-293:** Murojaatlar ro'yxati (sahifalar)
 - **294-310:** Murojaat detalyasi
@@ -251,6 +251,35 @@ Platformada O'zbekistonning **14 ta viloyati** va **200+ tumani** mavjud:
 - [ ] Email bildirishnomalar
 - [ ] Multi-language translation API integratsiyasi
 - [ ] Analytics Dashboard
+
+## 🚢 Deploy to Botxona (5 qadam)
+
+Quyidagi 5 qadam orqali loyihani Botxona platformasiga oson va tez joylashtiring:
+
+1. .env faylini yarating.
+   - `.env.example` faylidan nusxa olib `.env` deb nomlang.
+   - `.env` ichida BOT_TOKEN va DATA_DIR qiymatlarini to'ldiring:
+     - `BOT_TOKEN=YOUR_TELEGRAM_TOKEN`
+     - `DATA_DIR=./data` (yoki konteyner uchun `/app/data`)
+   - (ixtiyoriy) ADMIN_IDS va boshqalarni to'ldiring.
+
+2. GitHub-ga commit qiling yoki ZIP tayyorlang.
+   - `git add .env.example requirements.txt` va boshqa o'zgartirishlarni commit qilib `git push` qiling; yoki butun loyihani ZIP qiling.
+
+3. Botxona paneliga yuklang.
+   - Panelda `Deploy from GitHub` yoki `Upload ZIP` funksiyasini tanlang.
+   - Agar GitHub ulanmagan bo'lsa, ZIP faylni yuklang.
+
+4. Paneldagi muhit o'zgaruvchilarini to'ldiring.
+   - BOT_TOKEN = (sizning token)
+   - DATA_DIR = ./data
+   - (ixtiyoriy) ADMIN_IDS, TELEGRAM_API_URL, WEBHOOK_URL, WEBHOOK_PATH, WEBHOOK_SECRET, PORT
+   - Start komandasi: `python main.py`
+
+5. Ishga tushirib test qiling.
+   - Panelda Deploy/Start bosing.
+   - Botga `/start` yuboring — javob bo'lsa hammasi yaxshi.
+   - Murojaat yuboring va DATA_DIR ichida `mahalla_platform.db` paydo bo'lganini tekshiring.
 
 ## 📝 Litsenziya
 
