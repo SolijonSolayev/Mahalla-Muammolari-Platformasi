@@ -43,8 +43,16 @@ os.makedirs(DATA_DIR, exist_ok=True)
 DB_PATH = os.path.join(DATA_DIR, 'mahalla_platform.db')
 
 # --- DEFAULTLAR ---
-# ADMIN_IDS saqlash uchun — istalgan hollarda bu qat'iy talab emas
-ADMIN_IDS = [12345678]  # telegram id raqamingizni shu yerga qo'ying yoki paneldan sozlang
+# ADMIN_IDS endi muhit o'zgaruvchisidan olinadi (vergul bilan ajratilgan ro'yxat), yoki default sifatida 12345678
+ADMIN_IDS_ENV = os.environ.get('ADMIN_IDS', '')
+if ADMIN_IDS_ENV.strip():
+    try:
+        ADMIN_IDS = [int(x.strip()) for x in ADMIN_IDS_ENV.split(',') if x.strip()]
+    except ValueError:
+        ADMIN_IDS = [12345678]
+else:
+    ADMIN_IDS = [12345678]
+
 WEB_APP_URL = os.environ.get('WEB_APP_URL', "https://google.com/maps")  # Xarita URL'si
 
 # O'zbekistonning barcha viloyat va tumanlari (To'liq ro'yxat)
